@@ -9,12 +9,19 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
-        let query = args[1].clone();
-        let filename = args[2].clone();
+    pub fn new(mut args: impl Iterator<Item=String>) -> Result<Config, &'static str> {
+        args.next();
+
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query string")
+        };
+
+
+        let filename = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a file name")
+        };
 
         let case_sensitive = env::var("CASE_INSENSITIVE").is_err();
     
@@ -39,15 +46,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = Vec::new();
-
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        }
-    }
-
-    results
+    contents.lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
 
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
@@ -69,21 +70,21 @@ mod tests {
 
     #[test]
     fn not_enough_args() {
-        let args = [String::from("arg1")];
-        assert!(Config::new(&args).is_err(), "not enough arguments");
+        let args = vec![String::from("arg1")].into_iter();
+        assert!(Config::new(args).is_err(), "not enough arguments");
     }
 
     #[test]
     fn new_config_query() {
-        let args = [String::from("unused"), String::from("the"), String::from("config.txt")];
-        let config = Config::new(&args).unwrap();
+        let args = vec![String::from("unused"), String::from("the"), String::from("config.txt")].into_iter();
+        let config = Config::new(args).unwrap();
         assert_eq!(config.query, "the", "the config creates the query property properly");
     }
 
     #[test]
     fn new_config_filename() {
-        let args = [String::from("unused"), String::from("the"), String::from("config.txt")];
-        let config = Config::new(&args).unwrap();
+        let args = vec![String::from("unused"), String::from("the"), String::from("config.txt")].into_iter();
+        let config = Config::new(args).unwrap();
         assert_eq!(config.filename, "config.txt", "the config creates the filename property properly");
     }
 
